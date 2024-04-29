@@ -16,7 +16,10 @@ const main = async () => {
   MeshBuilder.CreateBox("box", { size: 0.2 });
 
   await scene.createDefaultXRExperienceAsync({
-    uiOptions: { sessionMode: "immersive-ar", referenceSpaceType: "unbounded" },
+    uiOptions: {
+      sessionMode: "immersive-ar",
+      referenceSpaceType: "local",
+    },
   });
 
   window.addEventListener("resize", () => engine.resize());
