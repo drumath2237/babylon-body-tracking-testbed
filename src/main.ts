@@ -27,7 +27,17 @@ const main = async () => {
   const sessionManager = xr.baseExperience.sessionManager;
 
   sessionManager.onXRFrameObservable.add((frame) => {
-    console.log(frame);
+    const xrFrame = frame as any;
+    if (!xrFrame.body) {
+      return;
+    }
+
+    for (let j of xrFrame.body) {
+      const bodySpace = j[1];
+      const pose = frame.getPose(bodySpace, sessionManager.referenceSpace);
+      // @ts-ignore
+      const pos = pose?.transform;
+    }
   });
 
   window.addEventListener("resize", () => engine.resize());
