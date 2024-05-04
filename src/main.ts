@@ -1,6 +1,8 @@
-import { Engine, MeshBuilder, Scene, Vector3 } from "@babylonjs/core";
 import "./style.css";
+
+import { Engine, Scene } from "@babylonjs/core";
 import "./bodyTracking/types";
+import { app } from "./app";
 
 const main = async () => {
   const renderCanvas =
@@ -14,35 +16,10 @@ const main = async () => {
 
   scene.createDefaultCameraOrLight(true, true, true);
 
-  const box = MeshBuilder.CreateBox("box", { size: 0.1 });
-  box.position = new Vector3(0, 0, 0.3);
-
-  const xr = await scene.createDefaultXRExperienceAsync({
-    uiOptions: {
-      sessionMode: "immersive-ar",
-      referenceSpaceType: "local",
-    },
-    optionalFeatures: ["body-tracking"],
-  });
-
-  const sessionManager = xr.baseExperience.sessionManager;
-
-  sessionManager.onXRFrameObservable.add((frame) => {
-    if (!frame.body) {
-      return;
-    }
-
-    for (let j of frame.body) {
-      const bodySpace = j[1];
-      const pose = frame.getPose(bodySpace, sessionManager.referenceSpace);
-      // @ts-ignore
-      const pos = pose?.transform;
-    }
-  });
+  await app(scene);
 
   window.addEventListener("resize", () => engine.resize());
   engine.runRenderLoop(() => scene.render());
 };
 
 main();
-
