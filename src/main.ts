@@ -1,5 +1,6 @@
 import { Engine, MeshBuilder, Scene, Vector3 } from "@babylonjs/core";
 import "./style.css";
+import "./bodyTracking/types";
 
 const main = async () => {
   const renderCanvas =
@@ -27,12 +28,11 @@ const main = async () => {
   const sessionManager = xr.baseExperience.sessionManager;
 
   sessionManager.onXRFrameObservable.add((frame) => {
-    const xrFrame = frame as any;
-    if (!xrFrame.body) {
+    if (!frame.body) {
       return;
     }
 
-    for (let j of xrFrame.body) {
+    for (let j of frame.body) {
       const bodySpace = j[1];
       const pose = frame.getPose(bodySpace, sessionManager.referenceSpace);
       // @ts-ignore
