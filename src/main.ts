@@ -1,7 +1,6 @@
 import "./style.css";
 
 import { Engine, Scene } from "@babylonjs/core";
-import "./bodyTracking/types";
 import { app } from "./app";
 
 const main = async () => {

@@ -35,8 +35,7 @@ export const app = async (scene: Scene): Promise<void> => {
     }
 
     let jointIndex = 0;
-    for (let j of frame.body) {
-      const bodySpace = j[1];
+    for (const [_, bodySpace] of frame.body) {
       const pose = frame.getPose(bodySpace, sessionManager.referenceSpace);
       if (!pose) {
         jointIndex++;
