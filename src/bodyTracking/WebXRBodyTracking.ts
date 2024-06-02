@@ -1,11 +1,16 @@
 import {
-  Matrix,
   Observable,
   Quaternion,
   Vector3,
   WebXRAbstractFeature,
+  WebXRFeatureName,
+  WebXRFeaturesManager,
   WebXRSessionManager,
 } from "@babylonjs/core";
+
+export class WebXRFeatureNameExt extends WebXRFeatureName {
+  public static readonly BODY_TRACKING = "xr-body-tracking";
+}
 
 export interface IWebXRBodyJointPose {
   position: Vector3;
@@ -17,11 +22,26 @@ export interface IWebXRBpdyTrackingOptions {
   mirrorZ?: boolean;
 }
 
-export type WebXRBodyJointMap = Map<XRBodyJoint, IWebXRBodyJointPose>;
+type WebXRBodyJointMap = Map<XRBodyJoint, IWebXRBodyJointPose>;
 export type ReadonlyWebXRBodyJointMap = ReadonlyMap<
   XRBodyJoint,
   IWebXRBodyJointPose
 >;
+
+const DOMPointToVec3 = (pos: DOMPointReadOnly, mirrorZ?: boolean): Vector3 => {
+  return mirrorZ
+    ? new Vector3(pos.x, pos.y, -pos.z)
+    : new Vector3(pos.x, pos.y, pos.z);
+};
+
+const DOMPointToQuaternion = (
+  rot: DOMPointReadOnly,
+  mirrorZ?: boolean
+): Quaternion => {
+  return mirrorZ
+    ? new Quaternion(-rot.x, -rot.y, rot.z, rot.w)
+    : new Quaternion(rot.x, rot.y, rot.z, rot.w);
+};
 
 export class WebXRBodyTracking extends WebXRAbstractFeature {
   public onBodyTrackedObservable: Observable<ReadonlyWebXRBodyJointMap> =
@@ -41,7 +61,7 @@ export class WebXRBodyTracking extends WebXRAbstractFeature {
     return this._options.baseXRSpace;
   }
 
-  public setBaseSpace(baseSpace: XRSpace): void {
+  public set baseSpace(baseSpace: XRSpace) {
     this._options.baseXRSpace = baseSpace;
   }
 
@@ -56,6 +76,10 @@ export class WebXRBodyTracking extends WebXRAbstractFeature {
   public set mirrorZ(value: boolean) {
     this._options.mirrorZ = value;
   }
+
+  public static readonly Name = WebXRFeatureNameExt.BODY_TRACKING;
+
+  public static readonly Version = 1;
 
   public constructor(
     _xrSessionManager: WebXRSessionManager,
@@ -82,34 +106,31 @@ export class WebXRBodyTracking extends WebXRAbstractFeature {
         continue;
       }
 
-      const position = WebXRBodyTracking.DOMPointToVec3(
-        transform.position,
-        this.mirrorZ
-      );
-      const rotation = WebXRBodyTracking.DOMPointToQuaternion(
+      const position = DOMPointToVec3(transform.position, this.mirrorZ);
+      const rotation = DOMPointToQuaternion(
         transform.orientation,
         this.mirrorZ
       );
 
       this._joints.set(j, { position, rotation });
     }
+
+    if (this._joints.size !== 0) {
+      this.onBodyTrackedObservable.notifyObservers(this._joints);
+    }
   }
 
-  private static DOMPointToVec3 = (
-    pos: DOMPointReadOnly,
-    mirrorZ?: boolean
-  ): Vector3 => {
-    return mirrorZ
-      ? new Vector3(pos.x, pos.y, -pos.z)
-      : new Vector3(pos.x, pos.y, pos.z);
-  };
-
-  private static DOMPointToQuaternion = (
-    rot: DOMPointReadOnly,
-    mirrorZ?: boolean
-  ): Quaternion => {
-    return mirrorZ
-      ? new Quaternion(-rot.x, -rot.y, rot.z, rot.w)
-      : new Quaternion(rot.x, rot.y, rot.z, rot.w);
-  };
+  public override dispose(): void {
+    this._joints.clear();
+    this.onBodyTrackedObservable.clear();
+  }
 }
+
+// register the plugin
+WebXRFeaturesManager.AddWebXRFeature(
+  WebXRBodyTracking.Name,
+  (xrSessionManager, options: IWebXRBpdyTrackingOptions) => () =>
+    new WebXRBodyTracking(xrSessionManager, options),
+  WebXRBodyTracking.Version,
+  false
+);
