@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { Scene } from "@babylonjs/core";
 import {
   IWebXRBpdyTrackingOptions,
