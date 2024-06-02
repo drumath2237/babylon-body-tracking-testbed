@@ -1,4 +1,5 @@
 import {
+  Matrix,
   Observable,
   Quaternion,
   Vector3,
@@ -13,6 +14,7 @@ export interface IWebXRBodyJointPose {
 
 export interface IWebXRBpdyTrackingOptions {
   baseXRSpace?: XRSpace;
+  mirrorZ?: boolean;
 }
 
 export type WebXRBodyJointMap = Map<XRBodyJoint, IWebXRBodyJointPose>;
@@ -25,7 +27,7 @@ export class WebXRBodyTracking extends WebXRAbstractFeature {
   public onBodyTrackedObservable: Observable<ReadonlyWebXRBodyJointMap> =
     new Observable();
 
-  private _joints?: WebXRBodyJointMap;
+  private _joints: WebXRBodyJointMap;
 
   public get size(): number | undefined {
     return this._joints?.size;
@@ -33,14 +35,6 @@ export class WebXRBodyTracking extends WebXRAbstractFeature {
 
   public get joints(): ReadonlyWebXRBodyJointMap | undefined {
     return this._joints;
-  }
-
-  public constructor(
-    _xrSessionManager: WebXRSessionManager,
-    private _options: IWebXRBpdyTrackingOptions = {}
-  ) {
-    super(_xrSessionManager);
-    this.xrNativeFeatureName = "body-tracking";
   }
 
   public get baseSpace(): XRSpace | undefined {
@@ -51,7 +45,71 @@ export class WebXRBodyTracking extends WebXRAbstractFeature {
     this._options.baseXRSpace = baseSpace;
   }
 
-  protected _onXRFrame(_xrFrame: XRFrame): void {
-    throw new Error("Method not implemented.");
+  public get mirrorZ(): boolean {
+    if (!this._options?.mirrorZ) {
+      return false;
+    }
+
+    return this._options.mirrorZ;
   }
+
+  public set mirrorZ(value: boolean) {
+    this._options.mirrorZ = value;
+  }
+
+  public constructor(
+    _xrSessionManager: WebXRSessionManager,
+    private _options: IWebXRBpdyTrackingOptions = {}
+  ) {
+    super(_xrSessionManager);
+    this.xrNativeFeatureName = "body-tracking";
+    this._joints = new Map<XRBodyJoint, IWebXRBodyJointPose>();
+  }
+
+  protected _onXRFrame(_xrFrame: XRFrame): void {
+    const body = _xrFrame.body;
+    if (!body) {
+      return;
+    }
+
+    this._joints.clear();
+
+    for (const [j, bodySpace] of body) {
+      const baseSpace = this.baseSpace ?? this._xrSessionManager.referenceSpace;
+      const jointPose = _xrFrame.getPose(bodySpace, baseSpace);
+      const transform = jointPose?.transform;
+      if (!transform) {
+        continue;
+      }
+
+      const position = WebXRBodyTracking.DOMPointToVec3(
+        transform.position,
+        this.mirrorZ
+      );
+      const rotation = WebXRBodyTracking.DOMPointToQuaternion(
+        transform.orientation,
+        this.mirrorZ
+      );
+
+      this._joints.set(j, { position, rotation });
+    }
+  }
+
+  private static DOMPointToVec3 = (
+    pos: DOMPointReadOnly,
+    mirrorZ?: boolean
+  ): Vector3 => {
+    return mirrorZ
+      ? new Vector3(pos.x, pos.y, -pos.z)
+      : new Vector3(pos.x, pos.y, pos.z);
+  };
+
+  private static DOMPointToQuaternion = (
+    rot: DOMPointReadOnly,
+    mirrorZ?: boolean
+  ): Quaternion => {
+    return mirrorZ
+      ? new Quaternion(-rot.x, -rot.y, rot.z, rot.w)
+      : new Quaternion(rot.x, rot.y, rot.z, rot.w);
+  };
 }
