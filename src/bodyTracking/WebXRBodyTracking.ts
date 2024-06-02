@@ -49,16 +49,16 @@ export class WebXRBodyTracking extends WebXRAbstractFeature {
 
   private _joints: WebXRBodyJointMap;
 
-  public get size(): number | undefined {
-    return this._joints?.size;
+  public get size(): number {
+    return this._joints.size;
   }
 
-  public get joints(): ReadonlyWebXRBodyJointMap | undefined {
+  public get joints(): ReadonlyWebXRBodyJointMap {
     return this._joints;
   }
 
-  public get baseSpace(): XRSpace | undefined {
-    return this._options.baseXRSpace;
+  public get baseSpace(): XRSpace {
+    return this._options.baseXRSpace ?? this._xrSessionManager.referenceSpace;
   }
 
   public set baseSpace(baseSpace: XRSpace) {
@@ -66,11 +66,7 @@ export class WebXRBodyTracking extends WebXRAbstractFeature {
   }
 
   public get mirrorZ(): boolean {
-    if (!this._options?.mirrorZ) {
-      return false;
-    }
-
-    return this._options.mirrorZ;
+    return this._options.mirrorZ ?? false;
   }
 
   public set mirrorZ(value: boolean) {
@@ -99,8 +95,7 @@ export class WebXRBodyTracking extends WebXRAbstractFeature {
     this._joints.clear();
 
     for (const [j, bodySpace] of body) {
-      const baseSpace = this.baseSpace ?? this._xrSessionManager.referenceSpace;
-      const jointPose = _xrFrame.getPose(bodySpace, baseSpace);
+      const jointPose = _xrFrame.getPose(bodySpace, this.baseSpace);
       const transform = jointPose?.transform;
       if (!transform) {
         continue;

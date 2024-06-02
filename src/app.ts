@@ -1,10 +1,9 @@
+import { MeshBuilder, Scene, TransformNode } from "@babylonjs/core";
 import {
-  MeshBuilder,
-  Quaternion,
-  Scene,
-  TransformNode,
-  Vector3,
-} from "@babylonjs/core";
+  IWebXRBpdyTrackingOptions,
+  WebXRBodyTracking,
+  WebXRFeatureNameExt,
+} from "./bodyTracking/WebXRBodyTracking";
 
 export const app = async (scene: Scene): Promise<void> => {
   const xr = await scene.createDefaultXRExperienceAsync({
@@ -12,59 +11,53 @@ export const app = async (scene: Scene): Promise<void> => {
       sessionMode: "immersive-ar",
       referenceSpaceType: "bounded-floor",
     },
-    optionalFeatures: ["body-tracking"],
   });
+  const { featuresManager /*sessionManager*/ } = xr.baseExperience;
 
-  let jointsObjects: TransformNode[] | null = null;
+  const bodyTracking = featuresManager.enableFeature(
+    WebXRFeatureNameExt.BODY_TRACKING,
+    "latest",
+    { mirrorZ: true } as IWebXRBpdyTrackingOptions
+  ) as WebXRBodyTracking;
 
-  const sessionManager = xr.baseExperience.sessionManager;
-  sessionManager.onXRFrameObservable.add((frame) => {
-    if (!frame.body) {
-      return;
-    }
+  let jointsObjects: TransformNode[] = [];
 
-    const xrBody = frame.body;
-    if (
-      jointsObjects == null ||
-      (jointsObjects as TransformNode[]).length != xrBody.size
-    ) {
-      jointsObjects = new Array<TransformNode>(xrBody.size);
-      for (let i = 0; i < xrBody.size; i++) {
-        jointsObjects[i] = MeshBuilder.CreateBox(`joint_${i}`, { size: 0.02 });
+  bodyTracking.onBodyTrackedObservable.add((joints) => {
+    if (jointsObjects.length !== joints.size) {
+      jointsObjects.splice(0);
+      for (let i = 0; i < joints.size; i++) {
+        jointsObjects.push(MeshBuilder.CreateBox(`joint${i}`, { size: 0.02 }));
       }
     }
 
-    let jointIndex = 0;
-    for (const [_, bodySpace] of frame.body) {
-      const pose = frame.getPose(bodySpace, sessionManager.referenceSpace);
-      if (!pose) {
-        jointIndex++;
-        continue;
-      }
+    bodyTracking.mirrorZ = false;
 
-      const transform = pose.transform;
-
-      jointsObjects[jointIndex].position = DOMPointToVec3(transform.position);
-      jointsObjects[jointIndex].rotationQuaternion = DOMPointToQuaternion(
-        transform.orientation
-      );
-
-      jointIndex++;
+    let i = 0;
+    for (const [, pose] of joints) {
+      jointsObjects[i].position = pose.position;
+      jointsObjects[i].rotationQuaternion = pose.rotation;
+      i++;
     }
   });
-};
 
-const DOMPointToVec3 = (pos: DOMPointReadOnly, mirrorZ?: boolean): Vector3 => {
-  return mirrorZ
-    ? new Vector3(pos.x, pos.y, -pos.z)
-    : new Vector3(pos.x, pos.y, pos.z);
-};
+  // const sessionManager = xr.baseExperience.sessionManager;
+  // sessionManager.onXRFrameObservable.add(() => {
+  //   if (bodyTracking.size === 0) {
+  //     return;
+  //   }
 
-const DOMPointToQuaternion = (
-  rot: DOMPointReadOnly,
-  mirrorZ?: boolean
-): Quaternion => {
-  return mirrorZ
-    ? new Quaternion(-rot.x, -rot.y, rot.z, rot.w)
-    : new Quaternion(rot.x, rot.y, rot.z, rot.w);
+  //   if (jointsObjects.length !== bodyTracking.size) {
+  //     jointsObjects.splice(0);
+  //     for (let i = 0; i < bodyTracking.size; i++) {
+  //       jointsObjects.push(MeshBuilder.CreateBox(`joint${i}`, { size: 0.02 }));
+  //     }
+  //   }
+
+  //   let i = 0;
+  //   for (const [, pose] of bodyTracking.joints) {
+  //     jointsObjects[i].position = pose.position;
+  //     jointsObjects[i].rotationQuaternion = pose.rotation;
+  //     i++;
+  //   }
+  // });
 };
